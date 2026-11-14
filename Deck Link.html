@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deck Link</title>
+<style>
+:root{--bg:#0e141b;--card:#1a2330;--line:#2a3646;--tx:#e8eef5;--mu:#8a9bb0;--ac:#1a9fff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 50% -10%,#1b2a3d,var(--bg));color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+.w{width:100%;max-width:760px;text-align:center}
+h1{font-size:clamp(28px,5vw,44px);margin:0 0 6px;letter-spacing:-.02em}
+p.s{color:var(--mu);margin:0 0 32px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.c{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px 20px;cursor:pointer;transition:.2s;color:var(--tx);font:inherit}
+.c:hover{transform:translateY(-4px);border-color:var(--ac);box-shadow:0 12px 40px #1a9fff30}
+.c b{display:block;font-size:20px;margin:10px 0 4px}.c span{color:var(--mu);font-size:14px}.ic{font-size:44px}
+.sc{display:none}.sc.on{display:block;animation:in .35s}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
+.code{font-size:clamp(44px,12vw,84px);font-weight:800;letter-spacing:.15em;margin:12px 0;background:linear-gradient(90deg,#1a9fff,#7ad0ff);-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:14px;padding:16px 28px;font:600 17px inherit;font-family:inherit;cursor:pointer;transition:.2s}
+.btn:hover{filter:brightness(1.15)}
+.bk{background:none;border:0;color:var(--mu);margin-top:24px;cursor:pointer;font:inherit}
+ol{text-align:left;max-width:460px;margin:28px auto 0;color:var(--mu);line-height:1.8}
+input{width:100%;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;color:var(--tx);font:600 22px inherit;font-family:inherit;text-align:center;margin:6px 0;outline:none}
+input:focus{border-color:var(--ac)}
+label{display:block;color:var(--mu);font-size:13px;margin-top:14px}
+.er{color:#ff6b6b;min-height:22px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="w">
+ <div class="sc on" id="home">
+  <h1>Deck Link</h1><p class="s">Transforme ta tablette ou ton t&eacute;l&eacute;phone en Steam Deck pour ton PC.</p>
+  <div class="g">
+   <button class="c" onclick="go('pc')"><div class="ic">&#128421;&#65039;</div><b>Je suis sur le PC</b><span>Obtenir le code et le lanceur</span></button>
+   <button class="c" onclick="go('tab')"><div class="ic">&#128241;</div><b>Tablette / t&eacute;l&eacute;phone</b><span>Entrer le code du PC</span></button>
+  </div>
+ </div>
+ <div class="sc" id="pc">
+  <h1>Ton code</h1><p class="s">Garde cette page ouverte.</p>
+  <div class="code" id="code">------</div>
+  <button class="btn" onclick="dl()">&#11015; T&eacute;l&eacute;charger le lanceur (.bat)</button>
+  <ol><li>Ouvre <b>DeckLink.bat</b> (Python doit &ecirc;tre install&eacute;).</li><li>Une fen&ecirc;tre CMD affiche l&rsquo;adresse de ton PC.</li><li>Sur la tablette (m&ecirc;me Wi-Fi), choisis &laquo;&nbsp;Tablette&nbsp;&raquo; et entre le code + l&rsquo;adresse.</li></ol>
+  <button class="bk" onclick="go('home')">&larr; Retour</button>
+ </div>
+ <div class="sc" id="tab">
+  <h1>Connexion</h1><p class="s">Entre le code affich&eacute; sur ton PC.</p>
+  <input id="ci" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off">
+  <label>Adresse du PC (affich&eacute;e dans la fen&ecirc;tre CMD)</label>
+  <input id="ip" inputmode="decimal" placeholder="192.168.1.23" style="font-size:18px">
+  <div class="er" id="er"></div>
+  <button class="btn" onclick="conn()">Connecter</button><br>
+  <button class="bk" onclick="go('home')">&larr; Retour</button>
+ </div>
+</div>
+
+<script type="text/plain" id="py">
+import os,sys,json,socket,webbrowser
+from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
+from urllib.parse import urlparse,parse_qs,unquote
+CODE="__CODE__"
+PORT=8765
+def folders():
+    return [os.path.join(os.environ.get("USERPROFILE",""),"Desktop"),os.path.join(os.environ.get("PUBLIC","C:\\Users\\Public"),"Desktop")]
+def apps():
+    out={}
+    for d in folders():
+        if os.path.isdir(d):
+            for f in sorted(os.listdir(d)):
+                n,e=os.path.splitext(f)
+                if e.lower() in (".lnk",".url",".exe",".bat") and n not in out:
+                    out[n]=os.path.join(d,f)
+    return out
+PAGE=r"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><title>Deck</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#1b2a3d,#0b1017);color:#e8eef5;font-family:system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+header{display:flex;justify-content:space-between;align-items:center;padding:22px 32px}
+header b{font-size:22px;letter-spacing:.04em}#clk{color:#8a9bb0;font-variant-numeric:tabular-nums}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;padding:8px 32px 80px}
+.t{aspect-ratio:3/4;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;border:2px solid transparent;transition:.18s;text-align:center;padding:12px;font-weight:600;font-size:14px;color:#fff;user-select:none;-webkit-tap-highlight-color:transparent}
+.t:active{transform:scale(.94)}.t:hover{border-color:#fff8;transform:scale(1.04)}
+.t i{font-style:normal;font-size:54px;font-weight:800;text-shadow:0 4px 16px #0006}
+#toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,80px);background:#1a9fff;padding:12px 22px;border-radius:30px;transition:.3s;font-weight:600}
+#toast.on{transform:translate(-50%,0)}
+#fs{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));width:30px;height:30px;border-radius:8px;border:0;background:#ffffff10;color:#fff;opacity:.25;font-size:15px;cursor:pointer;transition:.2s}
+#fs:hover,#fs:active{opacity:.8}
+#msg{text-align:center;color:#8a9bb0;padding:60px 20px}
+</style></head><body>
+<header><b>&#127918; BIBLIOTH&Egrave;QUE</b><span id="clk"></span></header>
+<div id="grid"></div><div id="msg"></div><div id="toast"></div>
+<button id="fs" title="Plein &eacute;cran">&#x26F6;</button>
+<script>
+var Q=new URLSearchParams(location.search).get("code")||"";
+function $(i){return document.getElementById(i)}
+function clk(){var d=new Date();$("clk").textContent=d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}clk();setInterval(clk,10000);
+function toast(t){var e=$("toast");e.textContent=t;e.className="on";setTimeout(function(){e.className=""},1800)}
+function hue(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return h}
+fetch("/api/apps?code="+Q).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(l){
+ if(!l.length){$("msg").textContent="Aucun raccourci sur le bureau du PC.";return}
+ l.forEach(function(n){var d=document.createElement("div");d.className="t";var h=hue(n);
+  d.style.background="linear-gradient(160deg,hsl("+h+",55%,38%),hsl("+((h+40)%360)+",60%,22%))";
+  d.innerHTML="<i></i><span></span>";d.firstChild.textContent=n.charAt(0).toUpperCase();d.lastChild.textContent=n;
+  d.onclick=function(){fetch("/api/launch?code="+Q+"&n="+encodeURIComponent(n)).then(function(){toast("Lancement : "+n)})};
+  $("grid").appendChild(d)})
+}).catch(function(){$("msg").textContent="Code invalide. Reviens en arri\u00e8re et r\u00e9essaie."});
+$("fs").onclick=function(){var d=document.documentElement;if(document.fullscreenElement){document.exitFullscreen()}else if(d.requestFullscreen){d.requestFullscreen()}else if(d.webkitRequestFullscreen){d.webkitRequestFullscreen()}};
+<\/script></body></html>"""
+class H(BaseHTTPRequestHandler):
+    def log_message(self,*a):pass
+    def send(self,body,ct="text/html; charset=utf-8",code=200):
+        b=body.encode("utf-8");self.send_response(code);self.send_header("Content-Type",ct);self.send_header("Content-Length",str(len(b)));self.end_headers();self.wfile.write(b)
+    def do_GET(self):
+        u=urlparse(self.path);q=parse_qs(u.query)
+        if u.path=="/":return self.send(PAGE)
+        if q.get("code",[""])[0]!=CODE:return self.send("no","text/plain",403)
+        if u.path=="/api/apps":return self.send(json.dumps(list(apps().keys())),"application/json")
+        if u.path=="/api/launch":
+            p=apps().get(q.get("n",[""])[0])
+            if p:
+                os.startfile(p)
+                print("Lance :",p)
+            return self.send("ok","text/plain")
+        self.send("?","text/plain",404)
+def ip():
+    s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8",80));return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
+print("")
+print("  ===== DECK LINK =====")
+print("  Code    :",CODE)
+print("  Adresse :",ip())
+print("  (laisse cette fenetre ouverte, Ctrl+C pour arreter)")
+ThreadingHTTPServer(("0.0.0.0",PORT),H).serve_forever()
+</script>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+var CODE=String(Math.floor(100000+Math.random()*900000));
+try{var o=sessionStorage.getItem("dl_code");if(o)CODE=o;else sessionStorage.setItem("dl_code",CODE)}catch(e){}
+$("code").textContent=CODE;
+try{$("ip").value=localStorage.getItem("dl_ip")||""}catch(e){}
+function go(id){document.querySelectorAll(".sc").forEach(function(s){s.classList.remove("on")});$(id).classList.add("on")}
+function dl(){
+ var py=$("py").textContent.replace("__CODE__",CODE).trim();
+ var bat="@echo off\r\ntitle Deck Link\r\npowershell -NoProfile -Command \"$t=Get-Content -Raw '%~f0'; $i=$t.IndexOf('#PY'+'START')+9; [IO.File]::WriteAllText($env:TEMP+'\\deck.py',$t.Substring($i))\"\r\npy -3 \"%TEMP%\\deck.py\" || python \"%TEMP%\\deck.py\"\r\npause\r\nexit /b\r\n#PYSTART\r\n"+py+"\r\n";
+ var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bat],{type:"application/octet-stream"}));a.download="DeckLink.bat";document.body.appendChild(a);a.click();a.remove();
+}
+function conn(){
+ var c=$("ci").value.trim(),ip=$("ip").value.trim();
+ if(c.length!==6||!/^[0-9.]+$/.test(ip)){$("er").textContent="Code (6 chiffres) et adresse requis.";return}
+ try{localStorage.setItem("dl_ip",ip)}catch(e){}
+ location.href="http://"+ip+":8765/?code="+c;
+}
+</script>
+</body>
+</html>
